@@ -15,7 +15,11 @@ export const fetchSettings = createAsyncThunk(
                 api.get('/user/settings'),
                 api.get('/user/settings/options'),
             ]);
-            return { settings: settings.data, options: options.data };
+            return {
+                settings: settings.data,
+                options: options.data,
+                paymentGateways: settings.paymentGateway ?? [],
+            };
         } catch (error) {
             return rejectWithValue(readError(error, 'Failed to load settings'));
         }
@@ -40,6 +44,7 @@ export const saveSettings = createAsyncThunk(
 const initialState = {
     values: null,
     options: null,
+    paymentGateways: null,
     status: 'idle',
     saveStatus: 'idle',
     error: null,
@@ -58,6 +63,9 @@ const settingsSlice = createSlice({
             state.values[key] = value;
             state.isDirty = true;
         },
+        setPaymentGateways(state, action) {
+            state.paymentGateways = action.payload;
+        },
     },
     extraReducers: (builder) => {
         builder
@@ -69,6 +77,7 @@ const settingsSlice = createSlice({
                 state.status = 'succeeded';
                 state.values = action.payload.settings;
                 state.options = action.payload.options;
+                state.paymentGateways = action.payload.paymentGateways;
                 state.isDirty = false;
             })
             .addCase(fetchSettings.rejected, (state, action) => {
@@ -91,12 +100,13 @@ const settingsSlice = createSlice({
     },
 });
 
-export const { setSetting } = settingsSlice.actions;
+export const { setSetting, setPaymentGateways } = settingsSlice.actions;
 
 export const selectSettings = (state) => state.settings.values;
 export const selectSettingsOptions = (state) => state.settings.options;
 export const selectSettingsStatus = (state) => state.settings.status;
 export const selectSettingsSaving = (state) => state.settings.saveStatus === 'saving';
 export const selectSettingsDirty = (state) => state.settings.isDirty;
+export const selectPaymentGateways = (state) => state.settings.paymentGateways;
 
 export default settingsSlice.reducer;

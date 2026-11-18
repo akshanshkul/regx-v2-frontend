@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import {
     Bell,
@@ -10,6 +10,10 @@ import {
     KeyRound,
     CreditCard,
     UserRound,
+    Plus,
+    Trash2,
+    SmartphoneNfc,
+    Copy,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { useDispatch, useSelector } from 'react-redux';
@@ -22,12 +26,15 @@ import {
     selectSettingsStatus,
     selectSettingsSaving,
     selectSettingsDirty,
+    selectPaymentGateways,
+    setPaymentGateways,
 } from '../../store/slices/settingsSlice';
 import {
     fetchEventTypes,
     selectEventTypes,
 } from '../../store/slices/eventTypesSlice';
 import SettingsSkeleton from '../components/SettingsSkeleton';
+import api from '../../services/api';
 
 const NOTIFICATIONS = [
     {
@@ -104,15 +111,31 @@ const Field = ({ label, hint, children }) => (
 
 const selectClass =
     'w-full border border-gray-300 rounded-lg px-4 py-2.5 text-sm bg-white focus:ring-1 focus:ring-regx-orange focus:border-regx-orange outline-none';
+const inputClass = selectClass;
+const razorpayWebhookUrl = `${api.defaults.baseURL.replace(/\/+$/, '')}/webhooks/razorpay`;
+
+const paymentGatewayError = (error, fallback) => {
+    const messages = error?.response?.data?.messages;
+    return (messages && Object.values(messages).join(', '))
+        || error?.response?.data?.message
+        || fallback;
+};
 
 const Settings = () => {
     const dispatch = useDispatch();
+    const [isAddingGateway, setIsAddingGateway] = useState(false);
+    const [isSavingGateway, setIsSavingGateway] = useState(false);
+    const [gatewayProvider, setGatewayProvider] = useState('');
+    const [gatewayKeyId, setGatewayKeyId] = useState('');
+    const [gatewayKeySecret, setGatewayKeySecret] = useState('');
+    const [gatewayWebhookSecret, setGatewayWebhookSecret] = useState('');
 
     const settings = useSelector(selectSettings);
     const options = useSelector(selectSettingsOptions);
     const status = useSelector(selectSettingsStatus);
     const isSaving = useSelector(selectSettingsSaving);
     const isDirty = useSelector(selectSettingsDirty);
+    const paymentGateway = useSelector(selectPaymentGateways);
     const eventTypes = useSelector(selectEventTypes);
 
     const isLoading = status === 'idle' || status === 'loading';
@@ -124,6 +147,7 @@ const Settings = () => {
 
         // Shared lookup data; no-ops when another page already loaded it.
         dispatch(fetchEventTypes());
+
     }, [dispatch]);
 
     const update = (key, value) => dispatch(setSetting({ key, value }));
@@ -134,6 +158,62 @@ const Settings = () => {
             toast.success('Settings saved.');
         } catch (message) {
             toast.error(message || 'Failed to save settings.');
+        }
+    };
+
+    const openGatewayForm = () => {
+        const currentGateway = paymentGateway?.find((item) => item.provider?.toLowerCase() === 'razorpay');
+        setGatewayProvider(currentGateway?.provider || 'Razorpay');
+        setGatewayKeyId(currentGateway?.api_key || '');
+        setGatewayKeySecret('');
+        setGatewayWebhookSecret('');
+        setIsAddingGateway(true);
+    };
+
+    const savePaymentGateway = async (event) => {
+        event.preventDefault();
+        setIsSavingGateway(true);
+        try {
+            const response = await api.put('/user/settings/payment-gateway', {
+                provider: gatewayProvider,
+                key_id: gatewayKeyId,
+                key_secret: gatewayKeySecret,
+                webhook_secret: gatewayWebhookSecret,
+            });
+            dispatch(setPaymentGateways(response.paymentGateway || []));
+            setIsAddingGateway(false);
+            setGatewayKeyId('');
+            setGatewayKeySecret('');
+            setGatewayWebhookSecret('');
+            toast.success(response.message || 'Payment gateway saved.');
+        } catch (error) {
+            toast.error(paymentGatewayError(error, 'Failed to save payment gateway credentials.'));
+        } finally {
+            setIsSavingGateway(false);
+        }
+    };
+
+    const removePaymentGateway = async () => {
+        if (!window.confirm('Remove the saved Razorpay credentials?')) return;
+        setIsSavingGateway(true);
+        try {
+            await api.delete('/user/settings/payment-gateway');
+            dispatch(setPaymentGateways([]));
+            setIsAddingGateway(false);
+            toast.success('Payment gateway removed.');
+        } catch (error) {
+            toast.error(paymentGatewayError(error, 'Failed to remove payment gateway credentials.'));
+        } finally {
+            setIsSavingGateway(false);
+        }
+    };
+
+    const copyWebhookUrl = async () => {
+        try {
+            await navigator.clipboard.writeText(razorpayWebhookUrl);
+            toast.success('Webhook URL copied.');
+        } catch {
+            toast.error('Could not copy the webhook URL.');
         }
     };
 
@@ -356,6 +436,153 @@ const Settings = () => {
                                     <ChevronRight className="w-4 h-4 text-gray-400 group-hover:text-regx-orange transition-colors shrink-0" />
                                 </Link>
                             </div>
+                        </div>
+                    </Card>
+
+                    <Card
+                        icon={SmartphoneNfc}
+                        title="Payment gateway"
+                        description="Connect a payment provider for your account."
+                    >
+                        <div className="space-y-4">
+                            {paymentGateway?.some((item) => item.provider?.toLowerCase() === 'razorpay') && !isAddingGateway ? (
+                                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                                    <div>
+                                        <p className="text-sm font-medium text-gray-900">Razorpay connected</p>
+                                        <p className="text-xs text-gray-500 mt-1">
+                                            Key ID ending in {paymentGateway.find((item) => item.provider?.toLowerCase() === 'razorpay')?.api_key?.slice(-4)}
+                                        </p>
+                                        <p className="text-xs text-gray-500 mt-1">
+                                            {paymentGateway.find((item) => item.provider?.toLowerCase() === 'razorpay')?.has_webhook_secret
+                                                ? 'Webhook signing secret configured.'
+                                                : 'Webhook signing secret not configured yet.'}
+                                        </p>
+                                    </div>
+                                    <div className="flex items-center gap-2">
+                                        <button
+                                            type="button"
+                                            onClick={openGatewayForm}
+                                            disabled={isSavingGateway}
+                                            className="px-4 py-2 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+                                        >
+                                            Edit credentials
+                                        </button>
+                                        <button
+                                            type="button"
+                                            onClick={removePaymentGateway}
+                                            disabled={isSavingGateway}
+                                            aria-label="Remove Razorpay credentials"
+                                            className="p-2 border border-gray-300 rounded-lg text-gray-500 hover:text-red-600 hover:bg-red-50 disabled:opacity-50"
+                                        >
+                                            <Trash2 className="w-4 h-4" />
+                                        </button>
+                                    </div>
+                                </div>
+                            ) : !isAddingGateway ? (
+                                <button
+                                    type="button"
+                                    onClick={openGatewayForm}
+                                    disabled={paymentGateway === null}
+                                    className="inline-flex items-center gap-2 px-4 py-2.5 bg-regx-orange text-white rounded-lg text-sm font-medium hover:bg-orange-600 disabled:opacity-50"
+                                >
+                                    <Plus className="w-4 h-4" />
+                                    Add new
+                                </button>
+                            ) : (
+                                <form onSubmit={savePaymentGateway} className="space-y-4">
+                                    <Field label="Payment provider">
+                                        <select
+                                            value={gatewayProvider}
+                                            onChange={(event) => setGatewayProvider(event.target.value)}
+                                            className={selectClass}
+                                        >
+                                            <option value="Razorpay">Razorpay</option>
+                                        </select>
+                                    </Field>
+                                    <Field label="Razorpay Key ID" hint="Found in the API Keys section of your Razorpay dashboard.">
+                                        <input
+                                            type="text"
+                                            value={gatewayKeyId}
+                                            onChange={(event) => setGatewayKeyId(event.target.value)}
+                                            autoComplete="off"
+                                            required
+                                            maxLength={255}
+                                            className={inputClass}
+                                        />
+                                    </Field>
+                                    <Field
+                                        label="Razorpay Key Secret"
+                                        hint={paymentGateway?.some((item) => item.provider?.toLowerCase() === 'razorpay')
+                                            ? 'Leave blank to keep the currently saved secret.'
+                                            : 'This secret is encrypted before it is stored and is never shown again.'}
+                                    >
+                                        <input
+                                            type="password"
+                                            value={gatewayKeySecret}
+                                            onChange={(event) => setGatewayKeySecret(event.target.value)}
+                                            autoComplete="new-password"
+                                            required={!paymentGateway?.some((item) => item.provider?.toLowerCase() === 'razorpay')}
+                                            maxLength={512}
+                                            className={inputClass}
+                                        />
+                                    </Field>
+                                    <Field
+                                        label="Razorpay Webhook Secret"
+                                        hint={paymentGateway?.some((item) => item.provider?.toLowerCase() === 'razorpay')
+                                            ? 'Leave blank to keep the current webhook secret. Use the same secret configured in Razorpay.'
+                                            : 'Optional for now. After saving, copy the webhook URL, configure it in Razorpay, then edit this gateway to save the matching secret.'}
+                                    >
+                                        <input
+                                            type="password"
+                                            value={gatewayWebhookSecret}
+                                            onChange={(event) => setGatewayWebhookSecret(event.target.value)}
+                                            autoComplete="new-password"
+                                            maxLength={512}
+                                            className={inputClass}
+                                        />
+                                    </Field>
+                                    <div className="flex flex-wrap gap-2">
+                                        <button
+                                            type="submit"
+                                            disabled={isSavingGateway || !gatewayKeyId.trim()}
+                                            className="px-4 py-2.5 bg-regx-orange text-white rounded-lg text-sm font-medium hover:bg-orange-600 disabled:opacity-50"
+                                        >
+                                            {isSavingGateway ? 'Saving…' : 'Save credentials'}
+                                        </button>
+                                        <button
+                                            type="button"
+                                            onClick={() => setIsAddingGateway(false)}
+                                            disabled={isSavingGateway}
+                                            className="px-4 py-2.5 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+                                        >
+                                            Cancel
+                                        </button>
+                                    </div>
+                                </form>
+                            )}
+                            {paymentGateway?.some((item) => item.provider?.toLowerCase() === 'razorpay') && !isAddingGateway && (
+                                <div className="rounded-xl border border-gray-200 bg-gray-50 p-4">
+                                    <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
+                                        <div className="min-w-0">
+                                            <p className="text-sm font-medium text-gray-900">Razorpay webhook URL</p>
+                                            <p className="text-xs text-gray-500 mt-1">
+                                                Add this URL to your Razorpay webhook settings.
+                                            </p>
+                                            <code className="block mt-2 text-xs text-gray-700 break-all">
+                                                {razorpayWebhookUrl}
+                                            </code>
+                                        </div>
+                                        <button
+                                            type="button"
+                                            onClick={copyWebhookUrl}
+                                            className="inline-flex items-center justify-center gap-2 px-3 py-2 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 hover:bg-white shrink-0"
+                                        >
+                                            <Copy className="w-4 h-4" />
+                                            Copy URL
+                                        </button>
+                                    </div>
+                                </div>
+                            )}
                         </div>
                     </Card>
                 </>

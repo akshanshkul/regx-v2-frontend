@@ -45,8 +45,10 @@ const DashboardNavbar = ({ setIsOpen }) => {
                         <p className="text-sm font-medium text-gray-900">{user?.name}</p>
                         <p className="text-xs text-gray-500 truncate max-w-[150px]">{user?.email}</p>
                     </div>
-                    <div className="w-9 h-9 rounded-full bg-regx-orange/10 text-regx-orange flex items-center justify-center font-bold text-sm border border-regx-orange/20">
-                        {initials}
+                    <div className="w-9 h-9 rounded-full overflow-hidden bg-regx-orange/10 text-regx-orange flex items-center justify-center font-bold text-sm border border-regx-orange/20">
+                        {user?.avatar ? (
+                            <img src={user.avatar} alt="" className="w-full h-full object-cover" />
+                        ) : initials}
                     </div>
                 </div>
             </div>
