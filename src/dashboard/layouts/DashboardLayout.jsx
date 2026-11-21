@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Outlet } from 'react-router-dom';
 import Sidebar from '../components/Sidebar';
 import DashboardNavbar from '../components/DashboardNavbar';
+import MobileNumberPrompt from '../components/MobileNumberPrompt';
 
 const DashboardLayout = () => {
     const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -14,6 +15,7 @@ const DashboardLayout = () => {
                 <DashboardNavbar setIsOpen={setSidebarOpen} />
                 
                 <main className="flex-1 p-4 md:p-6 lg:p-8 max-w-8xl mx-auto w-full">
+                    <MobileNumberPrompt />
                     <Outlet />
                 </main>
             </div>

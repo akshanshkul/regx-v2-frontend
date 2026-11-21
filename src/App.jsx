@@ -1,11 +1,11 @@
-import React, { lazy, Suspense, useEffect } from 'react';
-import { Routes, Route, Navigate } from 'react-router-dom';
+import React, { lazy, Suspense, useEffect, useRef, useState } from 'react';
+import { Routes, Route, Navigate, useLocation, useNavigate } from 'react-router-dom';
 import { useDispatch } from 'react-redux';
 import { initAuth } from './store/slices/authSlice';
 import { useAuth } from './hooks/useAuth';
 import { Toaster } from 'react-hot-toast';
-import { GoogleOAuthProvider } from '@react-oauth/google';
 import Spinner from './shared/components/Spinner';
+import api, { MAINTENANCE_EVENT } from './services/api';
 
 /*
  * The public registration form is the only page loaded eagerly.
@@ -23,6 +23,7 @@ import PublicForm from './forms/pages/PublicForm';
 
 const LandingLayout = lazy(() => import('./landing/layouts/LandingLayout'));
 const Home = lazy(() => import('./landing/pages/Home'));
+const Pricing = lazy(() => import('./landing/pages/Pricing'));
 const Contact = lazy(() => import('./landing/pages/Contact'));
 const PrivacyPolicy = lazy(() => import('./landing/pages/legal/PrivacyPolicy'));
 const TermsAndConditions = lazy(() => import('./landing/pages/legal/TermsAndConditions'));
@@ -50,7 +51,10 @@ const Settings = lazy(() => import('./dashboard/pages/Settings'));
 const FormBuilder = lazy(() => import('./dashboard/pages/FormBuilder'));
 const FormSubmissionsData = lazy(() => import('./dashboard/pages/FormSubmissionsData'));
 const Reports = lazy(() => import('./dashboard/pages/Reports'));
-const Subscription = lazy(() => import('./payments/pages/Subscription'));
+const WalletOverview = lazy(() => import('./dashboard/pages/wallet/WalletOverview'));
+const WalletRecharge = lazy(() => import('./dashboard/pages/wallet/WalletRecharge'));
+const WalletRechargeHistory = lazy(() => import('./dashboard/pages/wallet/WalletRechargeHistory'));
+const WalletTransactions = lazy(() => import('./dashboard/pages/wallet/WalletTransactions'));
 const Payments = lazy(() => import('./dashboard/pages/Payments'));
 const Payouts = lazy(() => import('./dashboard/pages/Payouts'));
 const FormRedirect = lazy(() => import('./dashboard/pages/FormRedirect'));
@@ -86,11 +90,187 @@ const RequireGuest = ({ children }) => {
 
 function AppRoutes() {
   const dispatch = useDispatch();
+  const navigate = useNavigate();
+  const location = useLocation();
+  const [isEnableInspect, setIsEnableInspect] = useState(true);
+  const [appConfigLoaded, setAppConfigLoaded] = useState(false);
+  const [isMaintenanceMode, setIsMaintenanceMode] = useState(false);
+  const [isManagementAllowed, setIsManagementAllowed] = useState(true);
+  const redirected = useRef(false);
+
+  useEffect(() => {
+    const showMaintenance = () => {
+      setIsMaintenanceMode(true);
+      setIsManagementAllowed(false);
+      setAppConfigLoaded(true);
+    };
+
+    window.addEventListener(MAINTENANCE_EVENT, showMaintenance);
+
+    return () => {
+      window.removeEventListener(MAINTENANCE_EVENT, showMaintenance);
+    };
+  }, []);
 
   // Exchange a stored token for the current user on boot.
   useEffect(() => {
     dispatch(initAuth());
   }, [dispatch]);
+
+  useEffect(() => {
+    let active = true;
+
+    api.get('/app/config')
+      .then((response) => {
+        const enabled = response?.data?.isEnableInspect;
+        const maintenance = response?.data?.isMaintenanceMode;
+        const allowed = response?.data?.isManagementAllowed;
+        if (active && typeof enabled === 'boolean') {
+          setIsEnableInspect(enabled);
+        }
+        if (active) {
+          setIsMaintenanceMode(maintenance === true);
+          setIsManagementAllowed(allowed !== false);
+          setAppConfigLoaded(true);
+        }
+      })
+      .catch((error) => {
+        console.warn('Could not load browser inspection settings:', error);
+        if (active) {
+          setAppConfigLoaded(true);
+        }
+      });
+
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (isEnableInspect) {
+      return undefined;
+    }
+
+    let resizeTimer;
+    const sampleWindow = () => ({
+      outerWidth: window.outerWidth,
+      outerHeight: window.outerHeight,
+      innerWidth: window.innerWidth,
+      innerHeight: window.innerHeight,
+      pixelRatio: window.devicePixelRatio,
+    });
+    let previous = sampleWindow();
+
+    const redirectHome = () => {
+      if (location.pathname === '/' || redirected.current) {
+        return;
+      }
+
+      redirected.current = true;
+      navigate('/', { replace: true });
+    };
+
+    const initialCheckTimer = window.setTimeout(() => {
+      const current = sampleWindow();
+      const desktop = window.innerWidth >= 768
+        && window.matchMedia('(pointer: fine)').matches;
+      const toolsAlreadyDocked = desktop
+        && (
+          current.outerWidth - current.innerWidth > 360
+          || current.outerHeight - current.innerHeight > 360
+        );
+
+      if (toolsAlreadyDocked) {
+        redirectHome();
+      }
+    }, 700);
+
+    const onKeyDown = (event) => {
+      const key = (event.key || '').toLowerCase();
+      const desktopShortcut = event.ctrlKey && event.shiftKey;
+      const macShortcut = event.metaKey && event.altKey;
+      const devToolsShortcut = key === 'f12'
+        || ((desktopShortcut || macShortcut)
+          && ['i', 'j', 'c'].includes(key));
+
+      if (!devToolsShortcut) {
+        return;
+      }
+
+      event.preventDefault();
+      event.stopPropagation();
+      event.stopImmediatePropagation?.();
+      redirectHome();
+    };
+
+    const onContextMenu = (event) => {
+      event.preventDefault();
+    };
+
+    const onResize = () => {
+      window.clearTimeout(resizeTimer);
+      resizeTimer = window.setTimeout(() => {
+        const current = sampleWindow();
+        const desktop = window.innerWidth >= 768
+          && window.matchMedia('(pointer: fine)').matches;
+        const zoomChanged = Math.abs(current.pixelRatio - previous.pixelRatio) > 0.01;
+        const browserResized = Math.abs(current.outerWidth - previous.outerWidth) > 24
+          || Math.abs(current.outerHeight - previous.outerHeight) > 24;
+        const previousWidthGap = previous.outerWidth - previous.innerWidth;
+        const previousHeightGap = previous.outerHeight - previous.innerHeight;
+        const currentWidthGap = current.outerWidth - current.innerWidth;
+        const currentHeightGap = current.outerHeight - current.innerHeight;
+        const dockedToolsLikely = desktop
+          && !zoomChanged
+          && !browserResized
+          && (
+            (currentWidthGap > 300 && currentWidthGap - previousWidthGap > 180)
+            || (currentHeightGap > 300 && currentHeightGap - previousHeightGap > 180)
+          );
+
+        previous = current;
+
+        if (dockedToolsLikely) {
+          redirectHome();
+        }
+      }, 300);
+    };
+
+    document.addEventListener('keydown', onKeyDown, true);
+    document.addEventListener('contextmenu', onContextMenu, true);
+    window.addEventListener('resize', onResize);
+
+    return () => {
+      document.removeEventListener('keydown', onKeyDown, true);
+      document.removeEventListener('contextmenu', onContextMenu, true);
+      window.removeEventListener('resize', onResize);
+      window.clearTimeout(resizeTimer);
+      window.clearTimeout(initialCheckTimer);
+    };
+  }, [isEnableInspect, location.pathname, navigate]);
+
+  useEffect(() => {
+    if (location.pathname !== '/') {
+      redirected.current = false;
+    }
+  }, [location.pathname]);
+
+  if (!appConfigLoaded) {
+    return <div className="min-h-screen flex items-center justify-center"><Spinner size="lg" /></div>;
+  }
+
+  if (isMaintenanceMode && !isManagementAllowed) {
+    return (
+      <main className="min-h-screen flex items-center justify-center bg-gray-50 px-6 text-center">
+        <section className="max-w-md">
+          <h1 className="text-3xl font-bold text-gray-900">We will be back soon</h1>
+          <p className="mt-3 text-gray-600">
+            RegX is temporarily unavailable while we carry out maintenance. Please try again later.
+          </p>
+        </section>
+      </main>
+    );
+  }
 
   return (
     <Suspense
@@ -104,7 +284,7 @@ function AppRoutes() {
       {/* Public Routes */}
       <Route element={<LandingLayout />}>
         <Route path="/" element={<Home />} />
-        <Route path="/pricing" element={<div className="py-32 text-center text-2xl">Pricing</div>} />
+        <Route path="/pricing" element={<Pricing />} />
         <Route path="/contact" element={<Contact />} />
         <Route path="/terms" element={<TermsAndConditions />} />
         <Route path="/privacy" element={<PrivacyPolicy />} />
@@ -134,12 +314,16 @@ function AppRoutes() {
         <Route path="guide" element={<Guide />} />
         <Route path="operations" element={<Operations />} />
         <Route path="profile" element={<Profile />} />
-        <Route path="subscription" element={<Subscription />} />
-        <Route path="billing" element={<div className="p-6">Billing (Coming soon)</div>} />
+        <Route path="subscription" element={<Navigate to="/dashboard/wallet" replace />} />
+        <Route path="billing" element={<Navigate to="/dashboard/wallet" replace />} />
         {/* The forms list, reachable from the sidebar. Forms are no longer
             only about events, so they get a home that is not under one. */}
         <Route path="forms" element={<Registrations />} />
         <Route path="payments" element={<Payments />} />
+        <Route path="wallet" element={<WalletOverview />} />
+        <Route path="wallet/recharge" element={<WalletRecharge />} />
+        <Route path="wallet/recharge-history" element={<WalletRechargeHistory />} />
+        <Route path="wallet/transactions" element={<WalletTransactions />} />
         <Route path="reports" element={<Reports />} />
         <Route path="payouts" element={<Payouts />} />
         <Route path="settings" element={<Settings />} />
@@ -219,13 +403,11 @@ function AppRoutes() {
 }
 
 function App() {
-  const googleClientId = import.meta.env.VITE_GOOGLE_CLIENT_ID || 'dummy-client-id';
-
   return (
-    <GoogleOAuthProvider clientId={googleClientId}>
+    <>
       <Toaster position="top-right" />
       <AppRoutes />
-    </GoogleOAuthProvider>
+    </>
   );
 }
 

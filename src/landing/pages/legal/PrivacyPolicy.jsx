@@ -18,7 +18,7 @@ const PrivacyPolicy = () => {
             <p>We use the collected information to:</p>
             <ul className="list-disc pl-6 space-y-2 mt-2">
                 <li>Facilitate event registrations and create tournament fixtures/brackets.</li>
-                <li>Process payments and subscriptions.</li>
+                <li>Process event registration payments and RP wallet recharges.</li>
                 <li>Send important updates regarding match timings, rule changes, and organizational announcements.</li>
                 <li>Improve our platform's functionality and user experience.</li>
             </ul>

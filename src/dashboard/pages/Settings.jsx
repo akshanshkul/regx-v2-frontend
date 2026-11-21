@@ -8,7 +8,7 @@ import {
     Save,
     ChevronRight,
     KeyRound,
-    CreditCard,
+    Coins,
     UserRound,
     Plus,
     Trash2,
@@ -423,14 +423,14 @@ const Settings = () => {
                                 </Link>
 
                                 <Link
-                                    to="/dashboard/subscription"
+                                    to="/dashboard/wallet"
                                     className="flex items-center justify-between gap-3 py-3 group"
                                 >
                                     <span className="flex items-center gap-3 min-w-0">
-                                        <CreditCard className="w-4 h-4 text-gray-400 shrink-0" />
+                                        <Coins className="w-4 h-4 text-gray-400 shrink-0" />
                                         <span className="min-w-0">
-                                            <span className="block text-sm font-medium text-gray-900">Plan & billing</span>
-                                            <span className="block text-xs text-gray-500">Your subscription and payment history.</span>
+                                            <span className="block text-sm font-medium text-gray-900">RegX Paisa wallet</span>
+                                            <span className="block text-xs text-gray-500">Your RP balance, recharges and activity.</span>
                                         </span>
                                     </span>
                                     <ChevronRight className="w-4 h-4 text-gray-400 group-hover:text-regx-orange transition-colors shrink-0" />

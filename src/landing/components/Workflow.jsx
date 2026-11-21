@@ -39,7 +39,7 @@ const Workflow = () => {
                     </h2>
                 </div>
 
-                <div className="relative max-w-5xl mx-auto">
+                <div className="relative max-w-8xl mx-auto">
                     {/* Connecting Line */}
                     <div className="hidden md:block absolute top-[22px] left-[10%] right-[10%] h-[1px] bg-gray-200"></div>
 

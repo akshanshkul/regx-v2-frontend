@@ -32,7 +32,7 @@ const Testimonials = () => {
                     </h2>
                 </div>
 
-                <div className="grid md:grid-cols-3 gap-6 max-w-5xl mx-auto">
+                <div className="grid md:grid-cols-3 gap-6 max-w-8xl mx-auto">
                     {reviews.map((review, i) => (
                         <div key={i} className="bg-white rounded-2xl p-8 border border-gray-200 shadow-sm flex flex-col justify-between min-h-[220px]">
                             <div>

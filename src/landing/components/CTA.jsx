@@ -16,7 +16,7 @@ const CTA = () => {
 
     return (
         <section className="py-24 bg-[#F3F2EE]">
-            <div className="max-w-5xl mx-auto px-4">
+            <div className="max-w-8xl mx-auto px-4">
                 <div className="bg-gradient-to-br from-[#1c1a17] via-[#2a2520] to-[#4a3f35] rounded-[32px] p-10 md:p-16 relative overflow-hidden">
                     <div className="absolute -bottom-40 -right-40 w-96 h-96 bg-regx-orange/20 rounded-full blur-[100px] pointer-events-none"></div>
                     <div className="absolute top-0 right-0 w-[200%] h-px bg-white/5 -rotate-45 transform origin-top-right"></div>

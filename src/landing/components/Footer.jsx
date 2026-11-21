@@ -40,7 +40,7 @@ const Footer = () => {
                         <h4 className="text-white text-[9px] font-bold tracking-[0.2em] uppercase mb-6">Company</h4>
                         <ul className="space-y-4 text-xs font-medium text-gray-400">
                             <li><Link to="/contact" className="hover:text-white transition-colors">Contact</Link></li>
-                            <li><a href="https://techcov.in" target="_blank" rel="noopener noreferrer" className="hover:text-white transition-colors">TechCov</a></li>
+                            <li><a href="https://techcov.in" target="_blank" rel="noopener noreferrer" className="hover:text-white transition-colors">Techco V</a></li>
                         </ul>
                     </div>
 
@@ -60,7 +60,7 @@ const Footer = () => {
                         © 2026 RegX. All rights reserved.
                     </p>
                     <p className="text-[10px] text-gray-500">
-                        Crafted by TechCov, a unit of Thread Services LLP.
+                        Crafted by Techco V, a unit of Thread Services LLP.
                     </p>
                 </div>
             </div>

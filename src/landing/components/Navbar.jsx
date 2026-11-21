@@ -8,7 +8,7 @@ const Navbar = () => {
 
     return (
         <header className="fixed top-4 sm:top-6 inset-x-0 z-50 px-4 flex justify-center">
-            <nav className="relative w-full max-w-5xl bg-white/95 backdrop-blur-md rounded-[22px] px-3 sm:px-6 flex items-center justify-between shadow-[0_8px_30px_rgb(0,0,0,0.06)] border border-gray-100 min-h-[64px]">
+            <nav className="relative w-full max-w-8xl bg-white/95 backdrop-blur-md rounded-[22px] px-3 sm:px-6 flex items-center justify-between shadow-[0_8px_30px_rgb(0,0,0,0.06)] border border-gray-100 min-h-[64px]">
                 <Link to="/" className="flex items-center text-xl font-bold font-display tracking-tight">
                     Reg<span className="text-regx-orange">X</span>
                 </Link>
@@ -17,6 +17,7 @@ const Navbar = () => {
                     <a href="#platform" className="hover:text-gray-900 transition-colors">Platform</a>
                     <a href="#workflow" className="hover:text-gray-900 transition-colors">How it works</a>
                     <a href="#organizations" className="hover:text-gray-900 transition-colors">Organizations</a>
+                    <Link to="/pricing" className="hover:text-gray-900 transition-colors">Pricing</Link>
                     <Link to="/contact" className="hover:text-gray-900 transition-colors">Contact</Link>
                 </div>
 
@@ -39,6 +40,7 @@ const Navbar = () => {
                             <a href="#platform" onClick={() => setIsMenuOpen(false)} className="hover:text-regx-orange p-2 rounded-lg hover:bg-gray-50">Platform</a>
                             <a href="#workflow" onClick={() => setIsMenuOpen(false)} className="hover:text-regx-orange p-2 rounded-lg hover:bg-gray-50">How it works</a>
                             <a href="#organizations" onClick={() => setIsMenuOpen(false)} className="hover:text-regx-orange p-2 rounded-lg hover:bg-gray-50">Organizations</a>
+                            <Link to="/pricing" onClick={() => setIsMenuOpen(false)} className="hover:text-regx-orange p-2 rounded-lg hover:bg-gray-50">Pricing</Link>
                             <Link to="/contact" onClick={() => setIsMenuOpen(false)} className="hover:text-regx-orange p-2 rounded-lg hover:bg-gray-50">Contact</Link>
                             <Link to="/login" onClick={() => setIsMenuOpen(false)} className="hover:text-regx-orange p-2 rounded-lg hover:bg-gray-50 border-t border-gray-100 mt-2 pt-4">Log in</Link>
                         </div>

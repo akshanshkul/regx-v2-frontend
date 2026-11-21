@@ -18,7 +18,7 @@ import SubmissionSummary from '../components/SubmissionSummary';
 import PaymentReport from '../components/PaymentReport';
 import FixtureResults from '../components/FixtureResults';
 import {
-    buildPdf,
+    exportEventReportPdf,
     exportExcel,
 } from '../utils/submissionExport';
 import {
@@ -212,7 +212,10 @@ const Reports = () => {
             }
 
             if (kind === 'excel') await exportExcel(settled.sheet, selectedForm.name);
-            if (kind === 'pdf') await buildPdf(submissions, labels);
+            if (kind === 'pdf') {
+                const reportResponse = await api.get(`/forms/${selectedFormId}/report`);
+                await exportEventReportPdf(reportResponse.data);
+            }
             if (kind === 'print') {
                 const { printSubmissions } = await import('../utils/submissionExport');
                 printSubmissions(submissions, labels);
@@ -220,7 +223,12 @@ const Reports = () => {
             if (kind === 'categories') await exportCategoryList(submissions, selectedForm.name);
             if (kind === 'weighin') printWeighInSheet(settled.data ?? [], labels);
         } catch (error) {
-            toast.error(error?.response?.data?.message || 'Could not export this report.');
+            toast.error(
+                error?.response?.data?.messages?.error
+                || error?.response?.data?.message
+                || error?.message
+                || 'Could not export this report.'
+            );
         } finally {
             setExporting('');
         }
@@ -323,7 +331,7 @@ const Reports = () => {
                                 className="inline-flex items-center gap-2 rounded-lg border border-gray-200 bg-white px-3 py-2 text-xs font-semibold text-gray-700 hover:border-red-300 hover:text-red-700 disabled:opacity-50"
                             >
                                 {exporting === 'pdf' ? <Loader2 className="h-4 w-4 animate-spin" /> : <FileText className="h-4 w-4" />}
-                                PDF
+                                Full report PDF
                             </button>
                             <button
                                 type="button"

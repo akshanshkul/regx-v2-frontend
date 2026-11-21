@@ -3,6 +3,7 @@ import { useParams, useSearchParams } from 'react-router-dom';
 import { Check, Flag, Loader2, Minus, Plus, RefreshCw, SkipForward, Trophy, WifiOff } from 'lucide-react';
 import toast from 'react-hot-toast';
 import api from '../services/api';
+import { useRefreshShortcut } from './useRefreshShortcut';
 
 const REFRESH_SECONDS = 6;
 
@@ -35,6 +36,8 @@ const RefereeScreen = () => {
             .then((data) => setState({ loading: false, error: null, data }))
             .catch((error) => setState((s) => ({ ...s, loading: false, error: messageOf(error, 'Could not reach the server') })));
     }, [token, table]);
+
+    useRefreshShortcut(load);
 
     useEffect(() => {
         load();

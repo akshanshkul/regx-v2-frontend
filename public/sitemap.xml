@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+  <url>
+    <loc>https://regx.techcov.in/</loc>
+    <priority>1.0</priority>
+  </url>
+  <url>
+    <loc>https://regx.techcov.in/pricing</loc>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://regx.techcov.in/contact</loc>
+    <priority>0.6</priority>
+  </url>
+  <url>
+    <loc>https://regx.techcov.in/terms</loc>
+  </url>
+  <url>
+    <loc>https://regx.techcov.in/privacy</loc>
+  </url>
+  <url>
+    <loc>https://regx.techcov.in/refund</loc>
+  </url>
+  <url>
+    <loc>https://regx.techcov.in/dpdp-policy</loc>
+  </url>
+  <url>
+    <loc>https://regx.techcov.in/sitemap</loc>
+  </url>
+</urlset>

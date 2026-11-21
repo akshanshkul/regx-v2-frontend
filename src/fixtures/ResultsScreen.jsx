@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { Loader2, Trophy, WifiOff } from 'lucide-react';
 import api from '../services/api';
+import { useRefreshShortcut } from './useRefreshShortcut';
 
 const REFRESH_SECONDS = 60;
 const PAGE_SECONDS = 12;
@@ -32,6 +33,8 @@ const ResultsScreen = () => {
             .then((data) => setState({ loading: false, error: null, data }))
             .catch((error) => setState((s) => ({ ...s, loading: false, error: error?.response?.data?.messages?.error || 'Could not load the results' })));
     }, [token]);
+
+    useRefreshShortcut(load);
 
     useEffect(() => {
         load();

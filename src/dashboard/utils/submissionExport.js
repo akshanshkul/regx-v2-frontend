@@ -10,6 +10,8 @@
  */
 
 import { parseServerDate } from '../../shared/utils/dates';
+import notoSansBoldUrl from '../assets/fonts/NotoSans-Bold.ttf?url';
+import notoSansRegularUrl from '../assets/fonts/NotoSans-Regular.ttf?url';
 
 const PAGE = { width: 210, height: 297, margin: 14 };
 
@@ -119,7 +121,7 @@ export const exportExcelRows = async (sheet, formName, sheetName) => {
  * sense listed under the team it belongs to, and the same layout serves a
  * single registration without a second template.
  */
-export const buildPdf = async (submissions, { formName, eventTitle }) => {
+export const buildPdf = async (submissions, { formName, eventTitle }, reportData = null) => {
     const { jsPDF } = await import('jspdf');
     const autoTable = (await import('jspdf-autotable')).default;
 
@@ -127,29 +129,6 @@ export const buildPdf = async (submissions, { formName, eventTitle }) => {
     const width = PAGE.width - PAGE.margin * 2;
 
     let y = PAGE.margin;
-
-    // --- document heading
-    doc.setFont('helvetica', 'bold').setFontSize(15).setTextColor(17, 24, 39);
-    doc.text(String(formName), PAGE.margin, y);
-    y += 5;
-
-    doc.setFont('helvetica', 'normal').setFontSize(8).setTextColor(107, 114, 128);
-    doc.text(
-        [
-            eventTitle,
-            `${submissions.length} registration${submissions.length === 1 ? '' : 's'}`,
-            `Generated ${new Date().toLocaleString('en-IN')}`,
-        ]
-            .filter(Boolean)
-            .join('   ·   '),
-        PAGE.margin,
-        y
-    );
-    y += 3;
-
-    doc.setDrawColor(17, 24, 39).setLineWidth(0.4);
-    doc.line(PAGE.margin, y, PAGE.margin + width, y);
-    y += 7;
 
     /** Starts a new page when the next block would not fit. */
     const reserve = (height) => {
@@ -159,7 +138,400 @@ export const buildPdf = async (submissions, { formName, eventTitle }) => {
         }
     };
 
-    submissions.forEach((submission) => {
+    const sectionTitle = (title) => {
+        reserve(12);
+        doc.setFillColor(255, 247, 237);
+        doc.rect(PAGE.margin, y, width, 8, 'F');
+        doc.setFont('helvetica', 'bold').setFontSize(9).setTextColor(124, 45, 18);
+        doc.text(String(title), PAGE.margin + 3, y + 5.4);
+        y += 11;
+    };
+
+    const drawBars = (items, color = [249, 115, 22]) => {
+        const maximum = Math.max(1, ...items.map((item) => Number(item.count) || 0));
+
+        items.forEach((item) => {
+            reserve(11);
+            const labelLines = doc.splitTextToSize(String(item.label || '—'), width - 24);
+            doc.setFont('helvetica', 'normal').setFontSize(7).setTextColor(55, 65, 81);
+            doc.text(labelLines[0] || '—', PAGE.margin, y + 3);
+            doc.setFont('helvetica', 'bold').setTextColor(31, 41, 55);
+            doc.text(
+                `${Number(item.count) || 0}${item.suffix ? ` · ${item.suffix}` : ''}`,
+                PAGE.margin + width,
+                y + 3,
+                { align: 'right' }
+            );
+            y += 4;
+
+            doc.setFillColor(243, 244, 246);
+            doc.rect(PAGE.margin, y, width, 2, 'F');
+            const barWidth = width * Math.max(0, Math.min(1, (Number(item.count) || 0) / maximum));
+            if (barWidth > 0) {
+                doc.setFillColor(...color);
+                doc.rect(PAGE.margin, y, barWidth, 2, 'F');
+            }
+            y += 6;
+        });
+    };
+
+    if (reportData) {
+        doc.setFillColor(17, 24, 39);
+        doc.rect(0, 0, PAGE.width, 47, 'F');
+        doc.setFillColor(249, 115, 22);
+        doc.rect(0, 0, 4, 47, 'F');
+        doc.setFont('helvetica', 'bold').setFontSize(16).setTextColor(255, 255, 255);
+        doc.text(doc.splitTextToSize(String(formName || 'Form report'), width).slice(0, 2), PAGE.margin, 17);
+        doc.setFont('helvetica', 'normal').setFontSize(8).setTextColor(253, 186, 116);
+        doc.text([eventTitle, 'Full form report'].filter(Boolean).join(' · '), PAGE.margin, 32);
+        doc.setTextColor(209, 213, 219);
+        doc.text(`Generated ${new Date().toLocaleString('en-IN')}`, PAGE.margin, 40);
+        y = 54;
+    } else {
+        doc.setFont('helvetica', 'bold').setFontSize(15).setTextColor(17, 24, 39);
+        doc.text(String(formName), PAGE.margin, y);
+        y += 5;
+
+        doc.setFont('helvetica', 'normal').setFontSize(8).setTextColor(107, 114, 128);
+        doc.text(
+            [
+                eventTitle,
+                `${submissions.length} registration${submissions.length === 1 ? '' : 's'}`,
+                `Generated ${new Date().toLocaleString('en-IN')}`,
+            ]
+                .filter(Boolean)
+                .join('   ·   '),
+            PAGE.margin,
+            y
+        );
+        y += 3;
+
+        doc.setDrawColor(17, 24, 39).setLineWidth(0.4);
+        doc.line(PAGE.margin, y, PAGE.margin + width, y);
+        y += 7;
+    }
+
+    if (reportData) {
+        const paidRows = submissions.filter((row) => row.payment_status === 'paid');
+        const collected = paidRows.reduce((sum, row) => sum + (Number(row.amount) || 0), 0);
+        const entryCounts = new Map();
+        let entryTotal = 0;
+
+        submissions.forEach((submission) => {
+            (submission.entries ?? []).forEach((grid) => {
+                (grid.rows ?? []).forEach((entry) => {
+                    entryTotal += 1;
+                    const category = grid.columns
+                        .filter((column) => (column.type ?? 'select') === 'select')
+                        .map((column) => entry[column.key])
+                        .filter(Boolean)
+                        .join(' · ');
+                    if (category) entryCounts.set(category, (entryCounts.get(category) ?? 0) + 1);
+                });
+            });
+        });
+
+        const paymentGroups = new Map();
+        submissions.forEach((row) => {
+            const status = row.payment_status === 'paid'
+                ? (row.payment_method === 'cash' ? 'Paid in cash' : 'Paid online')
+                : String(row.payment_status || 'Unknown').replaceAll('_', ' ');
+            const group = paymentGroups.get(status) ?? { count: 0, amount: 0 };
+            group.count += 1;
+            group.amount += Number(row.amount) || 0;
+            paymentGroups.set(status, group);
+        });
+
+        const metrics = [
+            ['Registrations', Number(reportData.meta?.total ?? submissions.length).toLocaleString('en-IN'), [255, 237, 213]],
+            ['Player entries', entryTotal.toLocaleString('en-IN'), [237, 233, 254]],
+            ['Paid', paidRows.length.toLocaleString('en-IN'), [220, 252, 231]],
+            ['Collected', `INR ${collected.toLocaleString('en-IN', { maximumFractionDigits: 2 })}`, [219, 234, 254]],
+        ];
+        const gap = 3;
+        const cardWidth = (width - gap * (metrics.length - 1)) / metrics.length;
+        reserve(25);
+        metrics.forEach(([label, value, fill], index) => {
+            const x = PAGE.margin + index * (cardWidth + gap);
+            doc.setFillColor(...fill);
+            doc.rect(x, y, cardWidth, 22, 'F');
+            doc.setFont('helvetica', 'bold').setFontSize(7).setTextColor(75, 85, 99);
+            doc.text(label, x + 3, y + 6);
+            doc.setFontSize(11).setTextColor(17, 24, 39);
+            doc.text(doc.splitTextToSize(String(value), cardWidth - 6).slice(0, 2), x + 3, y + 14);
+        });
+        y += 28;
+
+        if (reportData.meta?.capped) {
+            doc.setFont('NotoSans', 'normal').setFontSize(7).setTextColor(146, 64, 14);
+            doc.text(
+                `Analytics and detail tables include the first ${submissions.length.toLocaleString('en-IN')} rows; total registrations: ${Number(reportData.meta.total).toLocaleString('en-IN')}.`,
+                PAGE.margin,
+                y
+            );
+            y += 6;
+        }
+
+        sectionTitle('Registration activity · last 7 days');
+        reserve(44);
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        const days = Array.from({ length: 7 }, (_, index) => {
+            const date = new Date(today);
+            date.setDate(today.getDate() - (6 - index));
+            return {
+                key: `${date.getFullYear()}-${date.getMonth()}-${date.getDate()}`,
+                label: date.toLocaleDateString('en-IN', { weekday: 'short', day: 'numeric' }),
+                count: 0,
+            };
+        });
+        const dayMap = new Map(days.map((day) => [day.key, day]));
+        submissions.forEach((row) => {
+            const date = parseServerDate(row.created_at);
+            if (Number.isNaN(date.getTime())) return;
+            const day = dayMap.get(`${date.getFullYear()}-${date.getMonth()}-${date.getDate()}`);
+            if (day) day.count += 1;
+        });
+
+        const plotBottom = y + 29;
+        const maximumDaily = Math.max(1, ...days.map((day) => day.count));
+        const slot = width / days.length;
+        days.forEach((day, index) => {
+            const barWidth = Math.min(12, slot * 0.55);
+            const barHeight = (day.count / maximumDaily) * 23;
+            const x = PAGE.margin + slot * (index + 0.5);
+            doc.setFillColor(249, 115, 22);
+            if (barHeight > 0) doc.rect(x - barWidth / 2, plotBottom - barHeight, barWidth, barHeight, 'F');
+            doc.setFont('helvetica', 'bold').setFontSize(7).setTextColor(55, 65, 81);
+            doc.text(String(day.count), x, plotBottom - barHeight - 2, { align: 'center' });
+            doc.setFont('helvetica', 'normal').setTextColor(107, 114, 128);
+            doc.text(day.label, x, plotBottom + 5, { align: 'center' });
+        });
+        y = plotBottom + 11;
+
+        sectionTitle('Payment status breakdown');
+        drawBars(
+            [...paymentGroups.entries()]
+                .sort((a, b) => b[1].count - a[1].count)
+                .map(([label, group]) => ({ label, count: group.count, suffix: `INR ${group.amount.toLocaleString('en-IN', { maximumFractionDigits: 2 })}` })),
+            [16, 185, 129]
+        );
+
+        const categoryRows = [...entryCounts.entries()]
+            .map(([label, count]) => ({ label, count }))
+            .sort((a, b) => b.count - a.count || a.label.localeCompare(b.label));
+        if (categoryRows.length > 0) {
+            sectionTitle('Player entries by category');
+            drawBars(categoryRows.slice(0, 10), [124, 58, 237]);
+            autoTable(doc, {
+                startY: y,
+                margin: { left: PAGE.margin, right: PAGE.margin },
+                theme: 'striped',
+                head: [['Category', 'Entries']],
+                body: categoryRows.map((item) => [item.label, item.count]),
+                styles: { fontSize: 7, cellPadding: 1.5 },
+                headStyles: { fillColor: [91, 33, 182], textColor: [255, 255, 255] },
+            });
+            y = doc.lastAutoTable.finalY + 5;
+        }
+
+        sectionTitle('Payment totals');
+        autoTable(doc, {
+            startY: y,
+            margin: { left: PAGE.margin, right: PAGE.margin },
+            theme: 'striped',
+            head: [['Payment status', 'Registrations', 'Amount']],
+            body: [...paymentGroups.entries()].map(([status, group]) => [
+                status,
+                group.count,
+                `INR ${group.amount.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
+            ]),
+            styles: { fontSize: 7, cellPadding: 1.7 },
+            headStyles: { fillColor: [17, 24, 39], textColor: [255, 255, 255] },
+        });
+        y = doc.lastAutoTable.finalY + 5;
+
+        const fields = reportData.summary?.fields ?? [];
+        if (fields.length > 0) {
+            sectionTitle('Form answer counts and insights');
+            fields.forEach((field) => {
+                sectionTitle(`${field.label} · ${field.answered} answered, ${field.skipped} skipped`);
+                if (field.kind === 'choice') {
+                    drawBars(
+                        (field.options ?? []).map((option) => ({
+                            label: option.label,
+                            count: option.count,
+                            suffix: `${option.percent}%`,
+                        })),
+                        [249, 115, 22]
+                    );
+                } else if (field.kind === 'number') {
+                    autoTable(doc, {
+                        startY: y,
+                        margin: { left: PAGE.margin, right: PAGE.margin },
+                        head: [['Minimum', 'Maximum', 'Average', 'Median']],
+                        body: [[field.min ?? '—', field.max ?? '—', field.average ?? '—', field.median ?? '—']],
+                        styles: { fontSize: 7, cellPadding: 1.7 },
+                        headStyles: { fillColor: [37, 99, 235], textColor: [255, 255, 255] },
+                    });
+                    y = doc.lastAutoTable.finalY + 4;
+                } else if (field.kind === 'date') {
+                    autoTable(doc, {
+                        startY: y,
+                        margin: { left: PAGE.margin, right: PAGE.margin },
+                        head: [['Earliest', 'Latest']],
+                        body: [[field.earliest ?? '—', field.latest ?? '—']],
+                        styles: { fontSize: 7, cellPadding: 1.7 },
+                        headStyles: { fillColor: [37, 99, 235], textColor: [255, 255, 255] },
+                    });
+                    y = doc.lastAutoTable.finalY + 4;
+                } else if (field.kind === 'open') {
+                    autoTable(doc, {
+                        startY: y,
+                        margin: { left: PAGE.margin, right: PAGE.margin },
+                        head: [['Submitted answers']],
+                        body: (field.answers ?? []).map((answer) => [answer]),
+                        styles: { fontSize: 7, cellPadding: 1.7, overflow: 'linebreak' },
+                        headStyles: { fillColor: [37, 99, 235], textColor: [255, 255, 255] },
+                    });
+                    y = doc.lastAutoTable.finalY + 3;
+                    if (field.more > 0) {
+                        doc.setFont('helvetica', 'italic').setFontSize(7).setTextColor(107, 114, 128);
+                        doc.text(`${field.more} additional answers are available in the registration details below.`, PAGE.margin, y);
+                        y += 5;
+                    }
+                }
+            });
+        }
+
+        sectionTitle('Full payment details');
+        autoTable(doc, {
+            startY: y,
+            margin: { left: PAGE.margin, right: PAGE.margin },
+            theme: 'grid',
+            showHead: 'everyPage',
+            head: [['Reference', 'Participant', 'Amount', 'Status / method', 'Razorpay order ID', 'Payment ID', 'Provider status', 'Submitted']],
+            body: submissions.map((row) => [
+                row.reference ?? '—',
+                row.participant ?? '—',
+                `${row.currency ?? 'INR'} ${Number(row.amount || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
+                [
+                    String(row.payment_status ?? 'unknown').replaceAll('_', ' '),
+                    row.payment_method ? String(row.payment_method).replaceAll('_', ' ') : '',
+                ].filter(Boolean).join(' · '),
+                row.razorpay?.order_id ?? '—',
+                row.razorpay?.payment_id ?? '—',
+                row.razorpay?.status ?? '—',
+                printDate(row.created_at),
+            ]),
+            styles: { fontSize: 5.5, cellPadding: 1.2, overflow: 'linebreak' },
+            headStyles: { fillColor: [17, 24, 39], textColor: [255, 255, 255], fontSize: 5.5 },
+            columnStyles: {
+                0: { cellWidth: 21 },
+                1: { cellWidth: 27 },
+                2: { cellWidth: 19 },
+                3: { cellWidth: 24 },
+                4: { cellWidth: 24 },
+                5: { cellWidth: 24 },
+                6: { cellWidth: 18 },
+                7: { cellWidth: 25 },
+            },
+        });
+        y = doc.lastAutoTable.finalY + 5;
+        doc.addPage();
+        y = PAGE.margin;
+        sectionTitle('Complete registration data · all form answers and entries');
+
+        const answerDetails = (submission) => (submission.details ?? [])
+            .flatMap((section) => [
+                `${section.title}:`,
+                ...(section.items ?? []).map((item) => {
+                    const value = item.value === null || item.value === '' ? '—' : answerText(item.value);
+                    return `${item.label}: ${value}`;
+                }),
+            ])
+            .join('\n');
+
+        const entryDetails = (submission) => (submission.entries ?? [])
+            .flatMap((grid) => [
+                `${grid.label}:`,
+                ...(grid.rows ?? []).map((entry, index) => (
+                    `#${index + 1} · ${grid.columns.map((column) => (
+                        `${column.label}: ${entry[column.key] ?? '—'}`
+                    )).join(' · ')}`
+                )),
+            ])
+            .join('\n');
+
+        autoTable(doc, {
+            startY: y,
+            margin: { left: PAGE.margin, right: PAGE.margin },
+            theme: 'grid',
+            showHead: 'everyPage',
+            head: [['Registration', 'Participant & contact', 'Payment details', 'Form answers and entries']],
+            body: submissions.map((row) => [
+                `${row.reference ?? '—'}\nSubmitted: ${printDate(row.created_at)}`,
+                [
+                    row.participant ?? '—',
+                    row.participantType?.label,
+                    row.email,
+                    row.phone,
+                ].filter(Boolean).join('\n'),
+                [
+                    `${row.currency ?? 'INR'} ${Number(row.amount || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
+                    `Status: ${String(row.payment_status ?? 'unknown').replaceAll('_', ' ')}`,
+                    `Method: ${row.payment_method ?? '—'}`,
+                    `Order ID: ${row.razorpay?.order_id ?? '—'}`,
+                    `Payment ID: ${row.razorpay?.payment_id ?? '—'}`,
+                    `Provider status: ${row.razorpay?.status ?? '—'}`,
+                ].join('\n'),
+                [
+                    answerDetails(row),
+                    entryDetails(row),
+                ].filter(Boolean).join('\n'),
+            ]),
+            styles: {
+                fontSize: 5.5,
+                cellPadding: 1.5,
+                overflow: 'linebreak',
+                valign: 'top',
+                lineColor: [229, 231, 235],
+            },
+            headStyles: { fillColor: [17, 24, 39], textColor: [255, 255, 255], fontSize: 6 },
+            columnStyles: {
+                0: { cellWidth: 29 },
+                1: { cellWidth: 38 },
+                2: { cellWidth: 48 },
+                3: { cellWidth: 67 },
+            },
+        });
+        y = doc.lastAutoTable.finalY + 5;
+    } else {
+        // --- document heading
+        doc.setFont('helvetica', 'bold').setFontSize(15).setTextColor(17, 24, 39);
+        doc.text(String(formName), PAGE.margin, y);
+        y += 5;
+
+        doc.setFont('helvetica', 'normal').setFontSize(8).setTextColor(107, 114, 128);
+        doc.text(
+            [
+                eventTitle,
+                `${submissions.length} registration${submissions.length === 1 ? '' : 's'}`,
+                `Generated ${new Date().toLocaleString('en-IN')}`,
+            ]
+                .filter(Boolean)
+                .join('   ·   '),
+            PAGE.margin,
+            y
+        );
+        y += 3;
+
+        doc.setDrawColor(17, 24, 39).setLineWidth(0.4);
+        doc.line(PAGE.margin, y, PAGE.margin + width, y);
+        y += 7;
+    }
+
+    if (!reportData) submissions.forEach((submission) => {
         reserve(34);
 
         doc.setFont('courier', 'normal').setFontSize(7.5).setTextColor(107, 114, 128);
@@ -266,10 +638,401 @@ export const buildPdf = async (submissions, { formName, eventTitle }) => {
     return doc;
 };
 
-export const exportPdf = async (submissions, labels) => {
-    const doc = await buildPdf(submissions, labels);
+export const exportPdf = async (submissions, labels, reportData = null) => {
+    const doc = await buildPdf(submissions, labels, reportData);
 
     doc.save(exportFilename(labels.formName, 'pdf'));
+};
+
+const reportDate = (value, includeTime = false) => {
+    if (!value) return '—';
+
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return '—';
+
+    return date.toLocaleString('en-IN', includeTime
+        ? { dateStyle: 'medium', timeStyle: 'short' }
+        : { day: 'numeric', month: 'short', year: 'numeric' });
+};
+
+const reportMoney = (value, currency) => {
+    if (value === null || value === undefined || !Number.isFinite(Number(value))) return 'Unavailable';
+
+    const amount = Number(value).toLocaleString('en-IN', {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2,
+    });
+
+    return currency === 'INR' ? `₹${amount}` : `${currency || 'INR'} ${amount}`;
+};
+
+const humanize = (value) => String(value || '—').replaceAll('_', ' ').replace(/\b\w/g, (letter) => letter.toUpperCase());
+
+const reportPaymentAmount = (registration) => (registration.amountPaid ?? [])
+    .map((item) => reportMoney(item.amount, item.currency))
+    .join(' / ') || '—';
+
+const fontAsBase64 = async (url) => {
+    const response = await fetch(url);
+    if (!response.ok) throw new Error('Could not load the PDF font.');
+
+    const bytes = new Uint8Array(await response.arrayBuffer());
+    let binary = '';
+    const chunkSize = 0x8000;
+    for (let offset = 0; offset < bytes.length; offset += chunkSize) {
+        binary += String.fromCharCode(...bytes.subarray(offset, offset + chunkSize));
+    }
+
+    return btoa(binary);
+};
+
+const configureEventReportFont = async (doc) => {
+    const [regular, bold] = await Promise.all([
+        fontAsBase64(notoSansRegularUrl),
+        fontAsBase64(notoSansBoldUrl),
+    ]);
+
+    doc.addFileToVFS('NotoSans-Regular.ttf', regular);
+    doc.addFileToVFS('NotoSans-Bold.ttf', bold);
+    doc.addFont('NotoSans-Regular.ttf', 'NotoSans', 'normal');
+    doc.addFont('NotoSans-Bold.ttf', 'NotoSans', 'bold');
+};
+
+/** Build the complete event report from the server's form-scoped aggregates. */
+export const buildEventReportPdf = async (report) => {
+    if (!report?.form?.id || !report.summary || !Array.isArray(report.registrations)) {
+        throw new Error('The event report data is incomplete.');
+    }
+
+    const { jsPDF } = await import('jspdf');
+    const autoTable = (await import('jspdf-autotable')).default;
+    const doc = new jsPDF({ unit: 'mm', format: 'a4' });
+    await configureEventReportFont(doc);
+    doc.setFont('NotoSans', 'normal');
+    const margin = 14;
+    const width = PAGE.width - margin * 2;
+    const footerHeight = 19;
+    const summary = report.summary;
+    const form = report.form;
+    const event = report.event ?? {};
+    let y = margin;
+
+    const reserve = (height) => {
+        if (y + height > PAGE.height - margin - footerHeight) {
+            doc.addPage();
+            y = margin;
+        }
+    };
+
+    const sectionTitle = (title) => {
+        reserve(12);
+        doc.setFillColor(255, 247, 237);
+        doc.rect(margin, y, width, 8, 'F');
+        doc.setFont('NotoSans', 'bold').setFontSize(9).setTextColor(124, 45, 18);
+        doc.text(String(title), margin + 3, y + 5.4);
+        y += 11;
+    };
+
+    const table = (head, body, columnStyles = {}, options = {}) => {
+        autoTable(doc, {
+            startY: y,
+            margin: { left: margin, right: margin, bottom: footerHeight + 2 },
+            theme: 'grid',
+            head,
+            body,
+            styles: {
+                font: 'NotoSans',
+                fontSize: 7.5,
+                cellPadding: 1.8,
+                overflow: 'linebreak',
+                valign: 'top',
+                lineColor: [229, 231, 235],
+                textColor: [31, 41, 55],
+            },
+            headStyles: { fillColor: [17, 24, 39], textColor: [255, 255, 255], fontStyle: 'bold' },
+            columnStyles,
+            showHead: 'everyPage',
+            ...options,
+        });
+        y = doc.lastAutoTable.finalY + 5;
+    };
+
+    const bars = (items, color = [249, 115, 22]) => {
+        const maximum = Math.max(1, ...items.map((item) => Number(item.count) || 0));
+        items.forEach((item) => {
+            reserve(10);
+            const label = humanize(item.label);
+            doc.setFont('NotoSans', 'normal').setFontSize(7).setTextColor(55, 65, 81);
+            doc.text(doc.splitTextToSize(label, width - 25)[0] || '—', margin, y + 3);
+            doc.setFont('NotoSans', 'bold').setTextColor(31, 41, 55);
+            doc.text(String(Number(item.count) || 0), margin + width, y + 3, { align: 'right' });
+            y += 4;
+            doc.setFillColor(243, 244, 246);
+            doc.rect(margin, y, width, 2, 'F');
+            const barWidth = width * Math.max(0, Math.min(1, (Number(item.count) || 0) / maximum));
+            if (barWidth > 0) {
+                doc.setFillColor(...color);
+                doc.rect(margin, y, barWidth, 2, 'F');
+            }
+            y += 6;
+        });
+    };
+
+    const title = event.name || form.name || 'Event report';
+    const titleLines = doc.splitTextToSize(String(title), width - 8);
+    const headerHeight = Math.max(47, 23 + Math.min(titleLines.length, 3) * 7);
+    doc.setFillColor(17, 24, 39);
+    doc.rect(0, 0, PAGE.width, headerHeight, 'F');
+    doc.setFillColor(249, 115, 22);
+    doc.rect(0, 0, 4, headerHeight, 'F');
+    doc.setFont('NotoSans', 'bold').setFontSize(16).setTextColor(255, 255, 255);
+    doc.text(titleLines, margin, 16);
+    doc.setFont('NotoSans', 'normal').setFontSize(8).setTextColor(253, 186, 116);
+    doc.text(`Form: ${form.title || form.name || '—'}  ·  Form ID: ${form.id}`, margin, headerHeight - 14);
+    doc.setTextColor(209, 213, 219);
+    doc.text(`Generated ${reportDate(report.generatedAt, true)}`, margin, headerHeight - 7);
+    y = headerHeight + 7;
+
+    sectionTitle('Event & form information');
+    const location = [event.venue, event.address, event.state].filter(Boolean).join(', ') || '—';
+    table(
+        [['Information', 'Details']],
+        [
+            ['Event name', event.name || '—'],
+            ['Form title', form.title || form.name || '—'],
+            ['Form ID / Registration ID', String(form.id)],
+            ['Event location', location],
+            ['Event date', reportDate(event.date)],
+            ['Registration start date', reportDate(form.registrationStart)],
+            ['Registration end date', reportDate(form.registrationEnd)],
+            ['Report generated', reportDate(report.generatedAt, true)],
+            ['Report generated by', report.generatedBy || '—'],
+        ],
+        { 0: { cellWidth: 55, fontStyle: 'bold' } }
+    );
+
+    sectionTitle('Registration overview');
+    const cards = [
+        ['Registrations', summary.registrations],
+        ['Players', summary.players],
+        ['Teams', summary.teams],
+        ['Online paid', summary.onlinePayments],
+        ['Offline paid', summary.offlinePayments],
+        ['Pending', summary.pendingPayments],
+        ['Failed', summary.failedPayments],
+        ['Cancelled', summary.cancelledRegistrations],
+    ];
+    for (let index = 0; index < cards.length; index += 4) {
+        reserve(23);
+        const row = cards.slice(index, index + 4);
+        const gap = 3;
+        const cardWidth = (width - gap * (row.length - 1)) / row.length;
+        row.forEach(([label, value], cardIndex) => {
+            const x = margin + cardIndex * (cardWidth + gap);
+            const fill = cardIndex % 2 === 0 ? [255, 237, 213] : [237, 233, 254];
+            doc.setFillColor(...fill);
+            doc.rect(x, y, cardWidth, 19, 'F');
+            doc.setFont('NotoSans', 'normal').setFontSize(7).setTextColor(75, 85, 99);
+            doc.text(label, x + 3, y + 6);
+            doc.setFont('NotoSans', 'bold').setFontSize(12).setTextColor(17, 24, 39);
+            doc.text(Number(value || 0).toLocaleString('en-IN'), x + 3, y + 14);
+        });
+        y += 23;
+    }
+
+    if (report.meta?.capped || report.meta?.playersCapped) {
+        reserve(12);
+        doc.setFont('NotoSans', 'normal').setFontSize(7).setTextColor(146, 64, 14);
+        const notes = [];
+        if (report.meta?.capped) {
+            notes.push(`Registration details include ${Number(report.meta.included).toLocaleString('en-IN')} of ${Number(report.meta.total).toLocaleString('en-IN')} records.`);
+        }
+        if (report.meta?.playersCapped) {
+            notes.push(`Player details include ${Number(report.meta.playersIncluded).toLocaleString('en-IN')} records.`);
+        }
+        doc.text(doc.splitTextToSize(notes.join(' '), width), margin, y);
+        y += 7;
+    }
+
+    sectionTitle('Financial summary');
+    const financialRows = [];
+    (summary.financials ?? []).forEach((financial) => {
+        const currency = financial.currency || form.currency || 'INR';
+        financialRows.push(
+            [`${currency} · Expected registration amount`, '', reportMoney(financial.registrationAmount, currency)],
+            [`${currency} · Online successful payments`, financial.onlineTransactions, reportMoney(financial.onlineAmount, currency)],
+            [`${currency} · Offline successful payments`, financial.offlineTransactions, reportMoney(financial.offlineAmount, currency)],
+            [`${currency} · Pending payment attempts`, financial.pendingTransactions, reportMoney(financial.pendingAmount, currency)],
+            [`${currency} · Failed payment attempts`, financial.failedTransactions, reportMoney(financial.failedAmount, currency)],
+            [`${currency} · Gross amount received`, financial.successfulTransactions, reportMoney(financial.receivedAmount, currency)],
+            [`${currency} · Refund amount`, financial.refundedTransactions, reportMoney(financial.refundAmount, currency)],
+            [`${currency} · Net collection`, '', reportMoney(financial.netCollectionAmount, currency)]
+        );
+    });
+    table(
+        [['Payment category', 'Transactions', 'Amount']],
+        financialRows.length > 0 ? financialRows : [['No payment records', '0', reportMoney('0.00', form.currency)]],
+        { 0: { cellWidth: 88 }, 1: { cellWidth: 27, halign: 'right' }, 2: { halign: 'right' } }
+    );
+    if ((summary.financials ?? []).some((financial) => (financial.providerBreakdown ?? []).length > 0)) {
+        sectionTitle('Payment provider breakdown');
+        const providerRows = summary.financials.flatMap((financial) => (
+            financial.providerBreakdown ?? []
+        ).map((provider) => [
+            financial.currency || 'INR',
+            humanize(provider.provider),
+            reportMoney(provider.amount, financial.currency || 'INR'),
+        ]));
+        table(
+            [['Currency', 'Payment provider', 'Amount received']],
+            providerRows,
+            { 0: { cellWidth: 25 }, 1: { cellWidth: 85 }, 2: { halign: 'right' } }
+        );
+    }
+
+    sectionTitle('Online and offline breakdown');
+    const sourceRows = (summary.sourceBreakdown ?? []).map((item) => [humanize(item.label), item.count]);
+    const methodRows = (summary.paymentModeBreakdown ?? []).map((item) => [humanize(item.label), item.count]);
+    table(
+        [['Registration source', 'Registrations']],
+        sourceRows.length > 0 ? sourceRows : [['No registration sources', 0]],
+        { 0: { cellWidth: 120 }, 1: { halign: 'right' } }
+    );
+    y += 1;
+    table(
+        [['Successful payment mode', 'Registrations']],
+        methodRows.length > 0 ? methodRows : [['No successful payment records', 0]],
+        { 0: { cellWidth: 120 }, 1: { halign: 'right' } }
+    );
+    const sourcesForChart = summary.sourceBreakdown ?? [];
+    if (sourcesForChart.length > 0) {
+        sectionTitle('Registrations by source');
+        bars(sourcesForChart, [249, 115, 22]);
+    }
+    const methodsForChart = summary.paymentModeBreakdown ?? [];
+    if (methodsForChart.length > 0) {
+        sectionTitle('Paid registrations by mode');
+        bars(methodsForChart, [16, 185, 129]);
+    }
+
+    sectionTitle('Winners & Achievements');
+    const winners = report.winners ?? { total: 0, first: 0, second: 0, third: 0, rows: [] };
+    const winnerCards = [
+        ['Total winners', winners.total],
+        ['First position', winners.first],
+        ['Second position', winners.second],
+        ['Third position', winners.third],
+    ];
+    reserve(23);
+    const winnerGap = 3;
+    const winnerWidth = (width - winnerGap * 3) / 4;
+    winnerCards.forEach(([label, value], index) => {
+        const x = margin + index * (winnerWidth + winnerGap);
+        const fills = [[255, 247, 205], [243, 244, 246], [254, 235, 220], [237, 233, 254]];
+        doc.setFillColor(...fills[index]);
+        doc.rect(x, y, winnerWidth, 19, 'F');
+        doc.setFont('NotoSans', 'normal').setFontSize(7).setTextColor(75, 85, 99);
+        doc.text(label, x + 3, y + 6);
+        doc.setFont('NotoSans', 'bold').setFontSize(12).setTextColor(17, 24, 39);
+        doc.text(Number(value || 0).toLocaleString('en-IN'), x + 3, y + 14);
+    });
+    y += 23;
+
+    const winnerRows = (winners.rows ?? []).map((winner, index) => [
+        index + 1,
+        ({ 1: '1st', 2: '2nd', 3: '3rd' })[winner.place] || String(winner.place),
+        winner.name || '—',
+        winner.category || '—',
+        winner.teamOrAssociation || '—',
+        winner.registration || '—',
+    ]);
+    if (winnerRows.length > 0) {
+        table(
+            [['Sr. No.', 'Position', 'Winner', 'Category', 'Team / Association', 'Registration']],
+            winnerRows,
+            {
+                0: { cellWidth: 13, halign: 'center' },
+                1: { cellWidth: 17 },
+                2: { cellWidth: 39 },
+                3: { cellWidth: 39 },
+                4: { cellWidth: 39 },
+            }
+        );
+    } else {
+        reserve(8);
+        doc.setFont('NotoSans', 'normal').setFontSize(8).setTextColor(75, 85, 99);
+        doc.text('No winner records available', margin, y);
+        y += 7;
+    }
+
+    sectionTitle('Detailed registration records');
+    const registrationRows = report.registrations.map((registration) => [
+        registration.reference || '—',
+        [
+            registration.participant || '—',
+            registration.contactPerson && registration.contactPerson !== registration.participant ? registration.contactPerson : '',
+            registration.phone,
+            registration.email,
+        ].filter(Boolean).join('\n'),
+        [registration.registrationType, registration.category].filter(Boolean).join('\n') || '—',
+        [registration.source, registration.paymentMethod].filter(Boolean).map(humanize).join('\n') || '—',
+        [registration.status, registration.paymentStatus].filter(Boolean).map(humanize).join('\n') || '—',
+        reportDate(registration.registrationDate),
+        reportPaymentAmount(registration),
+    ]);
+    if (registrationRows.length > 0) {
+        table(
+            [['Registration No.', 'Participant / Contact', 'Type / Category', 'Source / Payment', 'Registration / Payment status', 'Registered', 'Amount paid']],
+            registrationRows,
+            {
+                0: { cellWidth: 22 },
+                1: { cellWidth: 40 },
+                2: { cellWidth: 27 },
+                3: { cellWidth: 25 },
+                4: { cellWidth: 29 },
+                5: { cellWidth: 20 },
+                6: { cellWidth: 19, halign: 'right' },
+            },
+            { rowPageBreak: 'auto' }
+        );
+    } else {
+        reserve(8);
+        doc.setFont('NotoSans', 'normal').setFontSize(8).setTextColor(75, 85, 99);
+        doc.text('No registration records available', margin, y);
+        y += 7;
+    }
+
+    sectionTitle('Player details');
+    const playerRows = (report.players ?? []).map((player) => [
+        player.registration || '—',
+        player.team || '—',
+        player.name || '—',
+        player.category || '—',
+    ]);
+    table(
+        [['Registration No.', 'Team', 'Player', 'Category']],
+        playerRows.length > 0 ? playerRows : [['—', '—', '—', 'No team roster details available']],
+        { 0: { cellWidth: 31 }, 1: { cellWidth: 45 }, 2: { cellWidth: 48 } },
+        { rowPageBreak: 'auto' }
+    );
+
+    const pages = doc.getNumberOfPages();
+    for (let page = 1; page <= pages; page++) {
+        doc.setPage(page);
+        doc.setDrawColor(229, 231, 235).setLineWidth(0.25);
+        doc.line(margin, PAGE.height - footerHeight, PAGE.width - margin, PAGE.height - footerHeight);
+        doc.setFont('NotoSans', 'normal').setFontSize(7).setTextColor(107, 114, 128);
+        doc.text(`${form.name || 'Event report'} · Form #${form.id}`, margin, PAGE.height - 8);
+        doc.text(`${page} / ${pages}`, PAGE.width - margin, PAGE.height - 8, { align: 'right' });
+    }
+
+    return doc;
+};
+
+export const exportEventReportPdf = async (report) => {
+    const doc = await buildEventReportPdf(report);
+    const filename = exportFilename(report.event?.name || report.form.name, 'pdf');
+    doc.save(filename);
 };
 
 // ---------------------------------------------------------------------- print

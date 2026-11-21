@@ -21,14 +21,14 @@ const Hero = () => {
                         </div>
 
                         <h1 className="font-display text-5xl sm:text-6xl lg:text-[68px] xl:text-[76px] leading-[.96] tracking-tight font-bold text-regx-dark">
-                            Run your event.<br />
-                            <span className="text-regx-orange">Not the paperwork.</span>
+                            Sports event<br />
+                            <span className="text-regx-orange">management, simplified.</span>
                         </h1>
 
                         <p className="mt-6 text-base md:text-lg text-regx-muted leading-relaxed max-w-xl">
-                            RegX helps sports federations, leagues and organizers manage
-                            registrations, fixtures, payments and live results — all in one
-                            powerful platform.
+                            RegX helps arm wrestling federations, tournament organizers and other sports communities
+                            manage athlete registration, competition categories, fixtures, payments and live results
+                            in one connected platform.
                         </p>
 
                         <div className="flex flex-wrap gap-3 mt-8">

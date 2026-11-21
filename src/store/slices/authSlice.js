@@ -44,9 +44,17 @@ export const signup = createAsyncThunk('auth/signup', async ({ name, email, pass
     return unwrapAuth(response, 'Signup failed');
 });
 
-export const googleLogin = createAsyncThunk('auth/googleLogin', async (payload) => {
-    const response = await api.post('/auth/google', payload);
-    return unwrapAuth(response, 'Google login failed');
+export const googleLogin = createAsyncThunk('auth/googleLogin', async ({ idToken, intent, acceptedTerms }) => {
+    try {
+        const response = await api.post('/auth/google', {
+            id_token: idToken,
+            intent,
+            accepted_terms: acceptedTerms,
+        });
+        return unwrapAuth(response, 'Google login failed');
+    } catch (error) {
+        throw error.response ? serverError(error, 'Google sign-in failed') : error;
+    }
 });
 
 /**

@@ -4,10 +4,9 @@ import LegalPageLayout from './LegalPageLayout';
 const RefundPolicy = () => {
     return (
         <LegalPageLayout title="Refund Policy" lastUpdated="September 13, 2026">
-            <h2 className="text-2xl font-bold text-gray-900 mt-8 mb-4">1. Organizer Platform Subscriptions</h2>
+            <h2 className="text-2xl font-bold text-gray-900 mt-8 mb-4">1. RegX Paisa Wallet Recharges</h2>
             <p>
-                Subscription payments made by organizers to RegX for platform usage (monthly or annual plans) are generally non-refundable. 
-                If you choose to cancel your subscription, you will retain access to the platform features until the end of your current billing cycle.
+                RP wallet recharge purchases are non-refundable. Any credit validity or expiry is shown for the selected recharge option before payment.
             </p>
 
             <h2 className="text-2xl font-bold text-gray-900 mt-8 mb-4">2. Athlete Event Registrations</h2>

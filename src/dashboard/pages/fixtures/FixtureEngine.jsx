@@ -147,8 +147,63 @@ const FixtureEngine = () => {
     // { category: max } — a limited category draws only its first comers.
     const [limits, setLimits] = useState({});
 
+    const playerCardCounts = categories.reduce((counts, group) => {
+        const limit = limits[group.category] ?? null;
+        const count = limit ? Math.min(group.entries.length, limit) : group.entries.length;
+
+        if (count === 1) return { ...counts, one: counts.one + 1 };
+        if (count === 2) return { ...counts, two: counts.two + 1 };
+        if (count >= 3) return { ...counts, threeOrMore: counts.threeOrMore + 1 };
+
+        return counts;
+    }, { one: 0, two: 0, threeOrMore: 0 });
+
+    const showPlayerCardCounts = () => toast.custom((t) => (
+        <div
+            role="status"
+            className={`w-72 max-w-[calc(100vw-2rem)] rounded-xl border border-gray-200 bg-white p-4 shadow-lg transition-opacity ${t.visible ? 'opacity-100' : 'opacity-0'
+                }`}
+        >
+            <div className="flex items-start gap-3">
+                <Info className="mt-0.5 h-4 w-4 shrink-0 text-regx-orange" />
+                <div className="min-w-0 flex-1">
+                    <div className="flex items-start justify-between gap-2">
+                        <p className="text-sm font-semibold text-gray-900">Category cards by player count</p>
+                        <button
+                            type="button"
+                            onClick={() => toast.dismiss(t.id)}
+                            aria-label="Close player count summary"
+                            className="-mr-1 -mt-1 rounded p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-600"
+                        >
+                            <X className="h-4 w-4" />
+                        </button>
+                    </div>
+                    <ul className="mt-2 space-y-1 text-xs text-gray-600">
+                        <li className="flex justify-between gap-3">
+                            <span>1 player</span>
+                            <span className="font-medium text-gray-900">{playerCardCounts.one} {playerCardCounts.one === 1 ? 'card' : 'cards'}</span>
+                        </li>
+                        <li className="flex justify-between gap-3">
+                            <span>2 players</span>
+                            <span className="font-medium text-gray-900">{playerCardCounts.two} {playerCardCounts.two === 1 ? 'card' : 'cards'}</span>
+                        </li>
+                        <li className="flex justify-between gap-3">
+                            <span>3+ players</span>
+                            <span className="font-medium text-gray-900">{playerCardCounts.threeOrMore} {playerCardCounts.threeOrMore === 1 ? 'card' : 'cards'}</span>
+                        </li>
+                        <small className="flex items-center justify-center gap-3 text-gray-500 text-xs font-medium text-center whitespace-nowrap">
+                            <span>1: {playerCardCounts.one}</span>
+                            <span>2: {playerCardCounts.one + playerCardCounts.two}</span>
+                            <span>3: {playerCardCounts.one + playerCardCounts.two + playerCardCounts.threeOrMore}</span>
+                        </small>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    ), { duration: 6000, position: 'top-center' });
+
     useEffect(() => {
-        api.get(`/forms/${formId}/fixture/limits`).then((p) => setLimits(p.limits ?? {})).catch(() => {});
+        api.get(`/forms/${formId}/fixture/limits`).then((p) => setLimits(p.limits ?? {})).catch(() => { });
     }, [formId]);
     const [confirm, setConfirm] = useState(null);
 
@@ -220,6 +275,24 @@ const FixtureEngine = () => {
     const answer = (value) => {
         confirm?.resolve(value);
         setConfirm(null);
+    };
+
+    const completeSingle = async (name) => {
+        const agreed = await ask({
+            title: 'Complete this single-entry category?',
+            message: 'Its only competitor will be recorded as the winner. No draw will be created.',
+            category: name,
+            confirmLabel: 'Declare winner',
+        });
+
+        if (!agreed) return;
+
+        setBusy(`complete:${name}`);
+        const result = await stored.completeSingleCategory(name);
+        setBusy(null);
+
+        if (result.ok) toast.success('Category completed — sole competitor declared winner.');
+        else toast.error(result.message);
     };
 
     /** Throw the draw away and build a new one from whoever is registered now. */
@@ -331,6 +404,16 @@ const FixtureEngine = () => {
                             {[event?.title, event?.subtype ?? event?.type].filter(Boolean).join(' · ') || ' '}
                         </p>
                     </div>
+                    <button
+                        type="button"
+                        onClick={showPlayerCardCounts}
+                        disabled={loading || categories.length === 0}
+                        title="Show how many category cards have 1, 2, or 3+ players"
+                        aria-label="Show category player-count summary"
+                        className="ml-auto inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-gray-200 text-gray-500 hover:border-regx-orange hover:text-regx-orange disabled:cursor-not-allowed disabled:opacity-40"
+                    >
+                        <Info className="h-4 w-4" />
+                    </button>
                 </div>
 
                 <div className="flex items-center gap-x-2 gap-y-2 flex-wrap pt-4 border-t border-gray-100">
@@ -590,24 +673,25 @@ const FixtureEngine = () => {
                         const count = limit ? Math.min(group.entries.length, limit) : group.entries.length;
                         const waiting = group.entries.length - count;
                         const playable = count > 1;
+                        const singleEntrant = count === 1 && group.entries.length === 1;
                         const info = stored.stateOf(group.category);
                         const completed = info?.status === 'completed';
                         const started = info?.status === 'started' || completed;
                         const failed = info?.status === 'failed' || info?.status === 'starting';
                         const starting = busy === `start:${group.category}`;
+                        const completing = busy === `complete:${group.category}`;
 
                         return (
                             <div
                                 key={group.category}
-                                className={`border rounded-xl p-4 flex flex-col hover:shadow-sm transition ${
-                                    completed
-                                        ? 'bg-yellow-50 border-yellow-300'
-                                        : started
+                                className={`border rounded-xl p-4 flex flex-col hover:shadow-sm transition ${completed
+                                    ? 'bg-yellow-50 border-yellow-300'
+                                    : started
                                         ? 'bg-green-50 border-green-300'
                                         : failed
-                                          ? 'bg-white border-red-200'
-                                          : 'bg-white border-gray-200 hover:border-regx-orange/40'
-                                }`}
+                                            ? 'bg-white border-red-200'
+                                            : 'bg-white border-gray-200 hover:border-regx-orange/40'
+                                    }`}
                             >
                                 <div className="flex items-start justify-between gap-2">
                                     <h2 className="font-semibold text-gray-900 leading-snug">{group.category}</h2>
@@ -721,36 +805,48 @@ const FixtureEngine = () => {
                                             <Medal className="w-4 h-4 shrink-0" /> Winner: {info.walkover.name}
                                         </span>
                                     ) : <>
-                                    {completed && (
-                                        <button
-                                            type="button"
-                                            onClick={() => rankingPdf(group.category, info)}
-                                            disabled={busy !== null}
-                                            title="Download the ranking list: 1st, 2nd, 3rd and so on"
-                                            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-yellow-300 bg-white text-sm font-medium text-yellow-800 hover:bg-yellow-100 disabled:opacity-50 transition-colors"
-                                        >
-                                            {busy === `rank:${group.category}` ? <Loader2 className="w-4 h-4 animate-spin" /> : <Medal className="w-4 h-4" />} Ranking
-                                        </button>
-                                    )}
+                                        {completed && (
+                                            <button
+                                                type="button"
+                                                onClick={() => rankingPdf(group.category, info)}
+                                                disabled={busy !== null}
+                                                title="Download the ranking list: 1st, 2nd, 3rd and so on"
+                                                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-yellow-300 bg-white text-sm font-medium text-yellow-800 hover:bg-yellow-100 disabled:opacity-50 transition-colors"
+                                            >
+                                                {busy === `rank:${group.category}` ? <Loader2 className="w-4 h-4 animate-spin" /> : <Medal className="w-4 h-4" />} Ranking
+                                            </button>
+                                        )}
 
-                                    {started ? (
-                                        <Link
-                                            to={categoryPath(group.category)}
-                                            className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-white text-sm font-medium transition-colors ${completed ? 'bg-yellow-500 hover:bg-yellow-600' : 'bg-green-600 hover:bg-green-700'}`}
-                                        >
-                                            <Eye className="w-4 h-4" /> View
-                                        </Link>
-                                    ) : !failed && (
-                                        <button
-                                            type="button"
-                                            onClick={() => start(group.category)}
-                                            disabled={!playable || busy !== null || !ready || !connected}
-                                            title={!playable ? 'Needs at least 2 competitors' : !connected ? 'Save the fixture type first' : undefined}
-                                            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-regx-orange text-white text-sm font-medium hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed transition-opacity"
-                                        >
-                                            {starting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Play className="w-4 h-4" />} Start
-                                        </button>
-                                    )}
+                                        {started ? (
+                                            <Link
+                                                to={categoryPath(group.category)}
+                                                className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-white text-sm font-medium transition-colors ${completed ? 'bg-yellow-500 hover:bg-yellow-600' : 'bg-green-600 hover:bg-green-700'}`}
+                                            >
+                                                <Eye className="w-4 h-4" /> View
+                                            </Link>
+                                        ) : !failed && (
+                                            singleEntrant ? (
+                                                <button
+                                                    type="button"
+                                                    onClick={() => completeSingle(group.category)}
+                                                    disabled={busy !== null || !stored.fixture?.type}
+                                                    title={!stored.fixture?.type ? 'Save a fixture type first' : 'Declare the only competitor as the winner'}
+                                                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-600 text-white text-sm font-medium hover:bg-emerald-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                                                >
+                                                    {completing ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCircle2 className="w-4 h-4" />} Complete
+                                                </button>
+                                            ) : (
+                                                <button
+                                                    type="button"
+                                                    onClick={() => start(group.category)}
+                                                    disabled={!playable || busy !== null || !ready || !connected}
+                                                    title={!playable ? 'Needs at least 2 competitors' : !connected ? 'Save the fixture type first' : undefined}
+                                                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-regx-orange text-white text-sm font-medium hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed transition-opacity"
+                                                >
+                                                    {starting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Play className="w-4 h-4" />} Start
+                                                </button>
+                                            )
+                                        )}
                                     </>}
                                 </div>
                             </div>

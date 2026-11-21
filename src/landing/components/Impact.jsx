@@ -15,7 +15,7 @@ const Impact = () => {
                     </p>
                 </div>
 
-                <div className="grid md:grid-cols-2 gap-6 max-w-5xl mx-auto">
+                <div className="grid md:grid-cols-2 gap-6 max-w-8xl mx-auto">
                     {/* Card 1 */}
                     <div className="bg-[#18181b] rounded-2xl p-8 md:p-10 relative overflow-hidden group flex flex-col min-h-[400px]">
                         <div className="absolute -bottom-32 -right-32 w-96 h-96 bg-regx-orange/20 rounded-full blur-[80px] group-hover:bg-regx-orange/30 transition-colors duration-500"></div>

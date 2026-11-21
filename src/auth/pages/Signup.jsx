@@ -1,8 +1,9 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../../hooks/useAuth';
 import Input from '../../shared/components/Input';
 import Button from '../../shared/components/Button';
+import GoogleAuthButton from '../components/GoogleAuthButton';
 import toast from 'react-hot-toast';
 
 const SPORTS_LIST = ['Cricket', 'Football', 'Tennis', 'Badminton', 'Basketball', 'Table Tennis', 'Volleyball', 'Athletics', 'Other'];
@@ -35,7 +36,7 @@ const Signup = () => {
         setLoading(true);
         try {
             await signup(name, email, password, selectedSports);
-            toast.success('Account created successfully');
+            toast.success('Account created successfully. 2,000 RP welcome credit added.');
             window.location.href = '/dashboard';
         } catch (error) {
             toast.error(error.message || 'Signup failed');
@@ -56,6 +57,7 @@ const Signup = () => {
                     placeholder="Jane Doe"
                     value={name}
                     onChange={(e) => setName(e.target.value)}
+                    autoComplete="name"
                     required
                 />
                 
@@ -65,6 +67,7 @@ const Signup = () => {
                     placeholder="name@organization.com"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
+                    autoComplete="email"
                     required
                 />
                 
@@ -105,6 +108,7 @@ const Signup = () => {
                     placeholder="Create a strong password"
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
+                    autoComplete="new-password"
                     required
                     minLength={6}
                 />
@@ -115,6 +119,7 @@ const Signup = () => {
                     placeholder="Confirm your password"
                     value={confirm}
                     onChange={(e) => setConfirm(e.target.value)}
+                    autoComplete="new-password"
                     required
                 />
 
@@ -137,6 +142,19 @@ const Signup = () => {
                     Create Account
                 </Button>
             </form>
+
+            <div className="mt-6 flex items-center">
+                <div className="flex-1 border-t border-gray-200"></div>
+                <div className="px-3 text-xs font-medium uppercase tracking-widest text-gray-400">Or</div>
+                <div className="flex-1 border-t border-gray-200"></div>
+            </div>
+            <div className="mt-6">
+                <GoogleAuthButton
+                    intent="signup"
+                    acceptedTerms={agreeTerms}
+                    label={agreeTerms ? 'Sign up with Google' : 'Agree to terms to continue'}
+                />
+            </div>
 
             <p className="mt-6 text-center text-sm text-gray-500">
                 Already have an account?{' '}

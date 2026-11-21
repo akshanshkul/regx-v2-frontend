@@ -8,16 +8,68 @@ import Impact from '../components/Impact';
 import CustomDashboard from '../components/CustomDashboard';
 import Testimonials from '../components/Testimonials';
 import CTA from '../components/CTA';
+import MediaShowcase from '../components/MediaShowcase';
+import ProductFeatureShowcase from '../components/ProductFeatureShowcase';
+import FAQs from '../components/FAQs';
+import PlatformCapabilities from '../components/PlatformCapabilities';
+import { FAQ_ITEMS } from '../components/faqItems';
 import { ShieldCheck, Trophy, Landmark, GraduationCap, Medal } from 'lucide-react';
+
+const siteUrl = 'https://regx.techcov.in/';
+const pageTitle = "RegX | India's First Arm Wrestling Fixture Application";
+const pageDescription = 'RegX is India’s first fixture application for arm wrestling and other sports. Manage athlete registration, competition categories, tournament draws, live results and reports in one platform.';
+const structuredData = [
+    {
+        '@context': 'https://schema.org',
+        '@type': 'SoftwareApplication',
+        name: 'RegX',
+        applicationCategory: 'BusinessApplication',
+        operatingSystem: 'Web',
+        url: siteUrl,
+        description: pageDescription,
+        featureList: [
+            'Online sports event registration',
+            'Athlete categories and entry management',
+            'Tournament fixtures and draws',
+            'Live event results and reports',
+        ],
+    },
+    {
+        '@context': 'https://schema.org',
+        '@type': 'FAQPage',
+        mainEntity: FAQ_ITEMS.map(({ question, answer }) => ({
+            '@type': 'Question',
+            name: question,
+            acceptedAnswer: {
+                '@type': 'Answer',
+                text: answer,
+            },
+        })),
+    },
+];
 
 const Home = () => {
     return (
         <div>
             <Helmet>
-                <title>RegX | Modern Sports Event Management Platform</title>
-                <meta name="description" content="RegX helps sports federations, leagues and organizers manage registrations, fixtures, payments and live results — all in one powerful platform." />
-                <meta name="keywords" content="sports management, event registration, tournament fixtures, live scoring, RegX, league management" />
-                <link rel="canonical" href="https://regx.techcov.in" />
+                <title>{pageTitle}</title>
+                <meta name="description" content={pageDescription} />
+                <meta name="keywords" content="arm wrestling fixtures India, arm wrestling tournament software, sports event management India, tournament registration, sports fixtures, RegX" />
+                <meta name="robots" content="index, follow, max-image-preview:large" />
+                <meta property="og:type" content="website" />
+                <meta property="og:site_name" content="RegX" />
+                <meta property="og:title" content={pageTitle} />
+                <meta property="og:description" content={pageDescription} />
+                <meta property="og:url" content={siteUrl} />
+                <meta name="twitter:card" content="summary" />
+                <meta name="twitter:title" content={pageTitle} />
+                <meta name="twitter:description" content={pageDescription} />
+                <link rel="canonical" href={siteUrl} />
+                {structuredData.map((data) => (
+                    <script key={data['@type']} type="application/ld+json">
+                        {JSON.stringify(data)}
+                    </script>
+                ))}
             </Helmet>
             <Hero />
             {/* Trust Section */}
@@ -37,11 +89,15 @@ const Home = () => {
             </section>
             
             <Features />
+            <ProductFeatureShowcase />
             <Workflow />
+            <MediaShowcase />
+            <PlatformCapabilities />
             <CustomDashboard />
             <BetterWay />
             <Impact />
             <Testimonials />
+            <FAQs />
             <CTA />
         </div>
     );

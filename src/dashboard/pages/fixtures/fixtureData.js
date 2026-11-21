@@ -154,7 +154,16 @@ export const useFixtureState = (formId) => {
         }
     }, [formId]);
 
-    return { ...state, saveType, startCategory, addLateEntries, resetCategory, completeCategory, stateOf, isStarted, isCompleted };
+    const completeSingleCategory = useCallback(async (category) => {
+        try {
+            apply(await api.post(`/forms/${formId}/fixture/categories/single`, { category }));
+            return { ok: true };
+        } catch (error) {
+            return { ok: false, message: messageOf(error, 'Could not complete this single-competitor category') };
+        }
+    }, [formId]);
+
+    return { ...state, saveType, startCategory, addLateEntries, resetCategory, completeCategory, completeSingleCategory, stateOf, isStarted, isCompleted };
 };
 
 /**

@@ -1,5 +1,7 @@
 import axios from 'axios';
 
+export const MAINTENANCE_EVENT = 'regx:maintenance-mode';
+
 const api = axios.create({
     baseURL: import.meta.env.VITE_API_URL || 'http://localhost:8081/api',
     headers: {
@@ -61,6 +63,18 @@ api.interceptors.response.use(
         return response.data; // Return only data to make things simpler
     },
     (error) => {
+        const responseData = error.response?.data;
+        const maintenanceResponse = error.response?.status === 503
+            && (
+                responseData?.code === 'MAINTENANCE_MODE'
+                || (typeof responseData === 'string'
+                    && responseData.includes('<title>Temporarily unavailable</title>'))
+            );
+
+        if (maintenanceResponse) {
+            window.dispatchEvent(new Event(MAINTENANCE_EVENT));
+        }
+
         if (error.response && error.response.status === 401) {
             // Handle unauthorized globally
             localStorage.removeItem('regx_token');

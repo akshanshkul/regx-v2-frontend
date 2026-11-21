@@ -47,7 +47,7 @@ const Contact = () => {
     const legalName = import.meta.env.VITE_COMPANY_LEGAL_NAME || 'Techco V';
     const contactEmail = import.meta.env.VITE_COMPANY_CONTACT_EMAIL || 'support@regx.in';
     const contactNumber = import.meta.env.VITE_COMPANY_CONTACT_NUMBER || '+91 98765 43210';
-    const address = import.meta.env.VITE_COMPANY_ADDRESS || 'TechCov Head Office, Mumbai, Maharashtra, India 400001';
+    const address = import.meta.env.VITE_COMPANY_ADDRESS || 'Techco V Head Office, Kasganj, Uttar Pradesh, India 207231';
 
     const jsonLd = {
         "@context": "https://schema.org",
@@ -88,7 +88,7 @@ const Contact = () => {
                     </p>
                 </div>
 
-                <div className="grid lg:grid-cols-3 gap-12 max-w-5xl mx-auto bg-white rounded-3xl shadow-sm border border-gray-100 overflow-hidden">
+                <div className="grid lg:grid-cols-3 gap-12 max-w-8xl mx-auto bg-white rounded-3xl shadow-sm border border-gray-100 overflow-hidden">
                     {/* Contact Form */}
                     <div className="lg:col-span-2 p-8 md:p-12">
                         {submitted ? (

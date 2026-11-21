@@ -29,7 +29,7 @@ const TermsAndConditions = () => {
             <h2 className="text-2xl font-bold text-gray-900 mt-8 mb-4">4. Intellectual Property</h2>
             <p>
                 All content on the Platform, including logos, software code, UI designs, and algorithms, are the property 
-                of RegX and TechCov. You may not copy, modify, distribute, or reverse engineer any part of the Platform 
+                of RegX and Techco V. You may not copy, modify, distribute, or reverse engineer any part of the Platform 
                 without explicit written consent.
             </p>
 

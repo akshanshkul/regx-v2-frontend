@@ -8,7 +8,6 @@ import {
 import api from '../../services/api';
 import Skeleton from '../../shared/components/Skeleton';
 import { exportExcelRows } from '../utils/submissionExport';
-import SubscriptionPayments from '../../payments/pages/Payments';
 import { parseServerDate } from '../../shared/utils/dates';
 import { encodeId } from '../../shared/utils/ids';
 
@@ -43,11 +42,6 @@ const when = (value) =>
         })
         : '—';
 
-/**
- * Two different kinds of money meet on this page, so they are kept apart:
- * what participants paid to register, and what the organiser paid us for their
- * plan. Mixing them into one list would make neither total mean anything.
- */
 const Payments = () => {
     const [scope, setScope] = useState('registrations');
 

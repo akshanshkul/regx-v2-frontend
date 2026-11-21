@@ -9,7 +9,9 @@ import toast from 'react-hot-toast';
 const Profile = () => {
     const { user, refreshUser } = useAuth();
     const [name, setName] = useState(user?.name || '');
+    const [phone, setPhone] = useState(user?.phone || '');
     const [loading, setLoading] = useState(false);
+    const [phoneLoading, setPhoneLoading] = useState(false);
     const [avatarSelection, setAvatarSelection] = useState(null);
     const [uploadedAvatarUrl, setUploadedAvatarUrl] = useState(null);
     const [avatarLoading, setAvatarLoading] = useState(false);
@@ -80,6 +82,29 @@ const Profile = () => {
         }
     };
 
+    const handleMobileUpdate = async (e) => {
+        e.preventDefault();
+        setPhoneLoading(true);
+        try {
+            const response = await api.put('/user/mobile', { phone });
+            if (!response?.success) {
+                throw new Error(response?.message || 'Could not update your mobile number.');
+            }
+
+            setPhone(response.data?.phone || phone);
+            await refreshUser();
+            toast.success('Mobile number updated successfully.');
+        } catch (error) {
+            const message = error.response?.data?.messages?.phone
+                || error.response?.data?.message
+                || error.message
+                || 'Could not update your mobile number.';
+            toast.error(message);
+        } finally {
+            setPhoneLoading(false);
+        }
+    };
+
     const handlePasswordUpdate = async (e) => {
         e.preventDefault();
         setPassLoading(true);
@@ -105,6 +130,29 @@ const Profile = () => {
             <div>
                 <h1 className="text-2xl font-bold font-display text-gray-900">Profile Settings</h1>
                 <p className="text-gray-500 mt-1">Manage your account details and password.</p>
+            </div>
+
+            <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
+                <div className="p-5 border-b border-gray-200">
+                    <h2 className="text-lg font-bold">Mobile number</h2>
+                    <p className="mt-1 text-sm text-gray-500">Update the mobile number saved to your account.</p>
+                </div>
+                <div className="p-5">
+                    <form onSubmit={handleMobileUpdate} className="space-y-4 max-w-md">
+                        <Input
+                            label="Mobile number"
+                            type="tel"
+                            value={phone}
+                            onChange={(e) => setPhone(e.target.value)}
+                            autoComplete="tel"
+                            inputMode="tel"
+                            maxLength={24}
+                            placeholder="+91 98765 43210"
+                            required
+                        />
+                        <Button type="submit" isLoading={phoneLoading}>Update mobile number</Button>
+                    </form>
+                </div>
             </div>
 
             <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">

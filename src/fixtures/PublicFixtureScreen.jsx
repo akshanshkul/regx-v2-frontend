@@ -5,6 +5,7 @@ import ResultsScreen from './ResultsScreen';
 import { CalendarDays, ChevronRight, Loader2, SkipForward, Trophy, WifiOff } from 'lucide-react';
 import { ACCENTS, STATUSES, accentFor, initials } from './boardStyle';
 import api from '../services/api';
+import { useRefreshShortcut } from './useRefreshShortcut';
 
 /**
  * The hall screen: what is being pulled right now, in every category at once.
@@ -368,6 +369,8 @@ const PublicFixtureScreen = () => {
                 }))
             );
     }, [token]);
+
+    useRefreshShortcut(load);
 
     useEffect(() => {
         load();
